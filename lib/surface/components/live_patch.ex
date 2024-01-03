@@ -2,14 +2,9 @@ defmodule Surface.Components.LivePatch do
   @moduledoc """
   Defines a link that will **patch** the current LiveView.
 
-  Provides similar capabilities to Phoenix's built-in `live_patch/2`
-  function.
+  Small Wrapper around live_view `link/1` component.
 
-  When navigating to the current LiveView, `handle_params/3` is
-  immediately invoked to handle the change of params and URL state.
-  Then the new state is pushed to the client, without reloading the
-  whole page. For live redirects to another LiveView, use
-  `<LiveRedirect>` instead.
+  Where possible opt for `link/1` instead of these wrappers.
   """
 
   use Surface.Component
@@ -21,7 +16,7 @@ defmodule Surface.Components.LivePatch do
   prop replace, :boolean, default: false
 
   @doc "The CSS class for the generated `<a>` element"
-  prop class, :css_class, default: ""
+  prop class, :css_class
 
   @doc """
   The label for the generated `<a>` element, if no content (default slot) is provided.
@@ -40,14 +35,6 @@ defmodule Surface.Components.LivePatch do
   slot default
 
   def render(assigns) do
-    ~F"""
-    <a
-      href={@to}
-      class={@class}
-      data-phx-link="patch"
-      data-phx-link-state={if @replace, do: "replace", else: "push"}
-      :attrs={@opts}
-    ><#slot>{@label}</#slot></a>
-    """
+    ~F"<.link patch={@to} class={@class} {...@opts}><#slot>{@label}</#slot></.link>"
   end
 end
