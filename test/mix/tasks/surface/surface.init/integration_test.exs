@@ -26,13 +26,14 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
 
     output =
       cmd(
-        "mix surface.init --catalogue --demo --layouts --yes --no-install --dry-run --web-module SurfaceInitTestWeb",
+        "mix surface.init --catalogue --demo --layouts --yes --no-install --web-module SurfaceInitTestWeb",
         opts
       )
 
     assert output =~ """
            * patching .formatter.exs
            * patching .gitignore
+           * patching Dockerfile
            * patching assets/css/app.css
            * patching assets/js/app.js
            * patching assets/tailwind.config.js
@@ -52,9 +53,12 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
            * creating lib/surface_init_test_web/components/layouts/root.sface
            * deleting lib/surface_init_test_web/components/layouts/root.html.heex
 
-           Finished running 30 patches for 20 files.
-           30 changes applied, 0 skipped.
+           Finished running 31 patches for 21 files.
+           31 changes applied, 0 skipped.
            """
+
+    compile(project_folder, warnings_as_errors: true)
+    cmd("mix test --warnings-as-errors", opts)
   end
 
   test "surfice.init on an already patched project applies no changes", %{project_folder_patched: project_folder} do
@@ -69,6 +73,7 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
     assert compact_output(output) =~ """
            * patching .formatter.exs (skipped)
            * patching .gitignore (skipped)
+           * patching Dockerfile (skipped)
            * patching assets/css/app.css (skipped)
            * patching assets/js/app.js (skipped)
            * patching assets/tailwind.config.js (skipped)
@@ -88,8 +93,8 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
            * creating lib/surface_init_test_web/components/layouts/root.sface (skipped)
            * deleting lib/surface_init_test_web/components/layouts/root.html.heex (skipped)
 
-           Finished running 30 patches for 20 files.
-           0 changes applied, 30 skipped.
+           Finished running 31 patches for 21 files.
+           0 changes applied, 31 skipped.
            It looks like this project has already been patched.
            """
   end
@@ -146,9 +151,10 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
       Mix.Tasks.Surface.Init.Patcher.patch_file(mix_file, [add_surface_to_mix_deps()], %{dry_run: false})
 
       cmd("mix deps.get", cd: project_folder)
+      cmd("mix phx.gen.release --docker", cd: project_folder)
     end
 
-    compile_output = cmd("mix compile", cd: project_folder)
+    compile_output = cmd("mix compile --warnings-as-errors", cd: project_folder)
     compiled? = String.contains?(compile_output, "Compiling")
 
     status =
@@ -190,10 +196,15 @@ defmodule Mix.Tasks.Surface.Init.IntegrationTest do
     end
   end
 
-  defp compile(project_folder) do
+  defp compile(project_folder, opts \\ []) do
     Mix.shell().info([:green, "* compiling ", :reset, project_folder])
     cmd("mix deps.get", cd: project_folder)
-    cmd("mix compile", cd: project_folder)
+
+    if opts[:warnings_as_errors] do
+      cmd("mix compile --warnings-as-errors", cd: project_folder)
+    else
+      cmd("mix compile", cd: project_folder)
+    end
   end
 
   defp restore(project_folder) do
