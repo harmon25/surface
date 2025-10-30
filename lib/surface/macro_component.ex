@@ -50,9 +50,8 @@ defmodule Surface.MacroComponent do
     {name, value}
   end
 
-  defp eval_value(%AST.Attribute{value: value_ast}, prop, caller) do
+  defp eval_value(%AST.Attribute{value: value_ast}, prop, %Macro.Env{} = caller) do
     %AST.AttributeExpr{original: value, value: expr, meta: %{line: line, file: file}} = value_ast
-
     env = %Macro.Env{caller | line: line}
 
     {evaluated_value, _} =

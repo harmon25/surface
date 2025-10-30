@@ -115,9 +115,13 @@ defmodule Surface.Components.LinkTest do
 
   test "updates when opts change", %{conn: conn} do
     {:ok, view, html} = live_isolated(conn, ViewWithLink)
-    refute html =~ ~s(disabled="disabled")
-    assert render_click(view, :toggle_disable) =~ ~s(disabled="disabled")
-    refute render_click(view, :toggle_disable) =~ ~s(disabled="disabled")
+    refute Regex.match?(~r/disabled="/, html)
+
+    enabled_html = render_click(view, :toggle_disable)
+    assert Regex.match?(~r/disabled="(?:disabled)?"/, enabled_html)
+
+    disabled_html = render_click(view, :toggle_disable)
+    refute Regex.match?(~r/disabled="/, disabled_html)
   end
 
   describe "is compatible with phoenix link/2" do

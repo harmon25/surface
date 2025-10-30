@@ -532,12 +532,18 @@ defmodule Surface.PropertiesTest do
           """
         end
 
-      message =
-        ~r/code:1:\n#{maybe_ansi("error:")} invalid value for property "prop"\. Expected a :list, got: {1, 2}\./
+      error =
+        assert_raise(Surface.CompileError, fn ->
+          compile_surface(code)
+        end)
 
-      assert_raise(Surface.CompileError, message, fn ->
-        compile_surface(code)
-      end)
+      expected_message =
+        "code:1:\nerror: invalid value for property \"prop\". Expected a :list, got: {1, 2}."
+
+      actual_message = Exception.message(error)
+      sanitized_message = Regex.replace(~r/\e\[[\d;]*m/, actual_message, "")
+
+      assert sanitized_message == expected_message
     end
 
     test "passing a list with a single value without brackets is invalid" do

@@ -57,7 +57,8 @@ defmodule Surface.LiveView.LiveViewTest do
       |> Floki.find("span#123")
 
     assert Floki.attribute(inner_live_view_tag, "class") == ["lv"]
-    assert Floki.attribute(inner_live_view_tag, "data-phx-sticky") == ["data-phx-sticky"]
+    sticky_attr = Floki.attribute(inner_live_view_tag, "data-phx-sticky")
+    assert sticky_attr in [["data-phx-sticky"], [""]]
     assert Floki.text(inner_live_view_tag) == "User id from session: USER_ID\n"
   end
 end

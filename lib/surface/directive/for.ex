@@ -44,9 +44,8 @@ defmodule Surface.Directive.For do
 
   defp handle_modifiers([{_, clause_meta, _} = list], ["index" | modifiers], meta) do
     var =
-      quote do
-        var!(index)
-      end
+      clause_meta
+      |> clause_var(:index)
 
     udpated_list =
       quote do
@@ -68,5 +67,10 @@ defmodule Surface.Directive.For do
 
   defp handle_modifiers(clauses, [], _meta) do
     clauses
+  end
+
+  defp clause_var(clause_meta, name) do
+    Macro.var(name, nil)
+    |> Macro.update_meta(fn meta -> Keyword.merge(meta, clause_meta, fn _k, _v1, v2 -> v2 end) end)
   end
 end

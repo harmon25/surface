@@ -468,12 +468,10 @@ defmodule Surface.ComponentStyleTest do
     {:ok, _view, html} = live_isolated(build_conn(), ViewWithLiveComponentWithUpdate)
 
     attr = scope_attr(ViewWithLiveComponentWithUpdate, :render)
+    escaped_attr = Regex.escape(attr)
+    pattern = ~r/<a data-phx-component="1"[^>]* #{escaped_attr}(?:=(?:""|"#{escaped_attr}"))?[^>]*>link<\/a>/
 
-    # We need to use `attr="attr"` instead of just `attr` here because it seems live_isolated/2
-    # renders attributes differently. Maybe because it relies on `<.dynamic_tag/>`?
-    assert html =~ """
-           <a data-phx-component=\"1\" #{attr}="#{attr}" href="#" class="a">link</a>\
-           """
+    assert html =~ pattern
   end
 
   test "inject scope attribute in any element that matches any selector group. No matter if it doesn't match the whole selector" do

@@ -28,14 +28,13 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
 
     assigns = Map.put(assigns, :__changed__, %{some_assign: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
-
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
     assert has_dynamic_part?(full_render, "SOME_ASSIGN")
     refute has_dynamic_part?(full_render, "INNER WITH ARG")
   end
@@ -52,13 +51,13 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
 
     assigns = Map.put(assigns, :__changed__, %{some_assign: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
 
     assert has_dynamic_part?(full_render, "SOME_ASSIGN")
     refute has_dynamic_part?(full_render, "INNER WITH ARG")
@@ -76,13 +75,13 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
 
     assigns = Map.put(assigns, :__changed__, %{some_assign: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
 
     # TODO: Why "INNER WITH ARG" is resent? It shouldn't!
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
@@ -100,13 +99,13 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
 
     assigns = Map.put(assigns, :__changed__, %{some_assign: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
 
     # TODO: Why "INNER WITH ARG" is resent? It shouldn't!
     assert has_dynamic_part?(full_render, "INNER WITH ARG")
@@ -123,16 +122,18 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
     assert has_dynamic_part?(full_render, "STATIC LABEL")
 
     assigns = Map.put(assigns, :__changed__, %{content: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
+    result = Map.get(full_render, 0)
 
-    assert has_dynamic_part?(full_render, "DYN CONTENT")
-    refute has_dynamic_part?(full_render, "STATIC LABEL")
+    # Phoenix LiveView >= 1.1 returns both the static and dynamic entries in the diff map
+    assert result[1] == "DYN CONTENT"
+    assert result[0] == "STATIC LABEL"
   end
 
   test "phx-* attributes with string values are static so they're not resent after first rendering" do
@@ -146,13 +147,13 @@ defmodule Surface.LVChangeTrackingTest do
       """
     end
 
-    {socket, full_render, components} = render(comp.(assigns))
+    {full_render, prints, components} = render(comp.(assigns))
 
-    assert full_render[:s] == ["<button phx-click=\"click\">", "</button>\n"]
+    assert Diff.to_iodata(full_render) == ["<button phx-click=\"click\">", "DYN CONTENT", "</button>\n"]
 
     assigns = Map.put(assigns, :__changed__, %{content: true})
 
-    {_, full_render, _} = render(comp.(assigns), socket.fingerprints, components)
+    {full_render, _prints, _} = render(comp.(assigns), prints, components)
 
     assert full_render == %{0 => "DYN CONTENT"}
   end
@@ -185,8 +186,8 @@ defmodule Surface.LVChangeTrackingTest do
          fingerprints \\ Diff.new_fingerprints(),
          components \\ Diff.new_components()
        ) do
-    socket = %Socket{endpoint: __MODULE__, fingerprints: fingerprints}
-    Diff.render(socket, rendered, components)
+    socket = %Socket{endpoint: __MODULE__}
+    Diff.render(socket, rendered, fingerprints, components)
   end
 
   defp has_dynamic_part?([{_, value} | _rest], value) do

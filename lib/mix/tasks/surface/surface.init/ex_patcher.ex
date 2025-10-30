@@ -292,17 +292,17 @@ defmodule Mix.Tasks.Surface.Init.ExPatcher do
     end
   end
 
-  def set_result(patcher, status) do
+  def set_result(%__MODULE__{} = patcher, status) do
     %__MODULE__{patcher | result: status}
   end
 
-  def append_code(patcher, text_to_append) do
+  def append_code(%__MODULE__{} = patcher, text_to_append) do
     patch(patcher, fn zipper ->
       zipper_append_patch(zipper, text_to_append, code(patcher))
     end)
   end
 
-  def append_child_code(patcher, text_to_append) do
+  def append_child_code(%__MODULE__{} = patcher, text_to_append) do
     patch(patcher, fn zipper ->
       # If possible, we try to replace the last child so the whole block
       # doesn't have to be formatted when using `Z.append_child/2`
@@ -321,7 +321,7 @@ defmodule Mix.Tasks.Surface.Init.ExPatcher do
     end)
   end
 
-  def append_child(patcher, string) do
+  def append_child(%__MODULE__{} = patcher, string) do
     patch(patcher, fn zipper ->
       # If possible, we try to replace the last child so the whole block
       # doesn't have to be formatted when using `Z.append_child/2`
@@ -391,7 +391,7 @@ defmodule Mix.Tasks.Surface.Init.ExPatcher do
     patcher
   end
 
-  def patch(patcher, opts, fun) do
+  def patch(%__MODULE__{} = patcher, opts, fun) do
     zipper = zipper(patcher)
 
     patch =
