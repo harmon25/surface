@@ -261,43 +261,156 @@ defmodule Surface do
     only_current_project = Keyword.get(opts, :only_current_project, false)
     project_app = Mix.Project.config()[:app]
 
-    apps =
-      if only_current_project do
-        [project_app]
-      else
-        :ok = Application.ensure_loaded(project_app)
-        project_deps_apps = Application.spec(project_app, :applications) || []
-        [project_app | project_deps_apps]
+    apps_beams_dirs =
+      case ensure_loaded(project_app) do
+        :ok ->
+          if only_current_project do
+            [current_app_beams_dir_and_files(project_app)]
+          else
+            project_deps_apps = Application.spec(project_app, :applications) || []
+
+            for app <- [project_app | project_deps_apps],
+                ensure_loaded(app) == :ok,
+                deps_apps = Application.spec(app)[:applications] || [],
+                app in [:surface, project_app] or :surface in deps_apps do
+              app_beams_dir_and_files(app)
+            end
+          end
+
+        :not_found ->
+          [current_app_beams_dir_and_files(project_app)]
       end
 
-    for app <- apps,
-        deps_apps = Application.spec(app)[:applications] || [],
-        app in [:surface, project_app] or :surface in deps_apps,
-        {dir, files} = app_beams_dir_and_files(app),
-        file <- files,
-        List.starts_with?(file, ~c"Elixir.") do
-      :filename.join(dir, file)
-    end
+    apps_beams_dirs
+    |> Enum.flat_map(fn {dir, files} ->
+      for file <- files, List.starts_with?(file, ~c"Elixir."), do: :filename.join(dir, file)
+    end)
     |> Enum.chunk_every(50)
     |> Task.async_stream(fn files ->
-      for file <- files,
-          {:ok, {_, [{_, chunk} | _]}} = :beam_lib.chunks(file, [~c"Attr"]),
-          chunk |> :erlang.binary_to_term() |> Keyword.get(:component_type) do
-        file |> Path.basename(".beam") |> String.to_atom()
-      end
+      Enum.flat_map(files, fn file ->
+        case :beam_lib.chunks(file, [~c"Attr"]) do
+          {:ok, {_, [{_, chunk} | _]}} ->
+            chunk
+            |> :erlang.binary_to_term()
+            |> Keyword.get(:component_type)
+            |> case do
+              nil ->
+                []
+
+              _component_type ->
+                [file |> Path.basename(".beam") |> String.to_atom()]
+            end
+
+          {:error, :beam_lib, {:file_error, _mod, :enoent}} ->
+            []
+
+          {:error, :beam_lib, {:not_a_beam_file, _mod}} ->
+            []
+
+          {:error, :beam_lib, {:file_error, _mod, :eacces}} ->
+            []
+
+          _ ->
+            []
+        end
+      end)
     end)
     |> Enum.flat_map(fn {:ok, result} -> result end)
   end
 
+  defp current_app_beams_dir_and_files(app) do
+    dir =
+      Mix.Project.build_path()
+      |> Path.join("lib")
+      |> Path.join(to_string(app))
+      |> String.to_charlist()
+      |> :filename.join(~c"ebin")
+
+    {dir, list_dir(dir)}
+  end
+
   defp app_beams_dir_and_files(app) do
     dir =
-      app
-      |> Application.app_dir()
-      |> Path.join("ebin")
-      |> String.to_charlist()
+      case Application.app_dir(app) do
+        path when is_list(path) ->
+          path
 
-    {:ok, files} = :file.list_dir(dir)
-    {dir, files}
+        path when is_binary(path) ->
+          String.to_charlist(path)
+
+        {:error, _} ->
+          project_config = Mix.Project.config()
+          project_app = project_config[:app]
+          deps_app_path = project_config[:deps_app_path]
+          deps_paths = Mix.Project.deps_paths()
+          deps_path = Map.get(deps_paths, app)
+
+          cond do
+            app == project_app ->
+              Mix.Project.app_path() |> String.to_charlist()
+
+            is_list(deps_app_path) ->
+              :filename.join(deps_app_path, app_charlist(app))
+
+            is_binary(deps_app_path) ->
+              deps_app_path
+              |> Path.join(to_string(app))
+              |> String.to_charlist()
+
+            is_list(deps_path) ->
+              deps_path
+
+            is_binary(deps_path) ->
+              String.to_charlist(deps_path)
+
+            true ->
+              raise ArgumentError,
+                    "unable to locate application directory for #{inspect(app)}"
+          end
+      end
+
+    dir = :filename.join(dir, ~c"ebin")
+
+    {dir, list_dir(dir)}
+  end
+
+  defp list_dir(dir) do
+    case :file.list_dir(dir) do
+      {:ok, files} ->
+        files
+
+      {:error, :enoent} ->
+        []
+
+      {:error, reason} ->
+        :erlang.error({:cannot_list_beam_dir, dir, reason})
+    end
+  end
+
+  defp app_charlist(app) do
+    app |> to_string() |> String.to_charlist()
+  end
+
+  defp ensure_loaded(app) do
+    case Application.ensure_loaded(app) do
+      :ok ->
+        :ok
+
+      {:error, {:already_loaded, _}} ->
+        :ok
+
+      {:error, {:not_loaded, dep}} ->
+        case ensure_loaded(dep) do
+          :ok -> ensure_loaded(app)
+          other -> other
+        end
+
+      {:error, _} ->
+        :not_found
+
+      other ->
+        other
+    end
   end
 
   @doc false

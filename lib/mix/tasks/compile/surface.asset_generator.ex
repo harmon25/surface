@@ -183,7 +183,8 @@ defmodule Mix.Tasks.Compile.Surface.AssetGenerator do
   end
 
   defp generate_js_files(js_files, hooks_output_dir) do
-    js_output_dir = Path.join([File.cwd!(), hooks_output_dir])
+    cwd = File.cwd!()
+    js_output_dir = Path.join([cwd, hooks_output_dir])
     index_file = Path.join([js_output_dir, "index.js"])
 
     File.mkdir_p!(js_output_dir)
@@ -314,7 +315,10 @@ defmodule Mix.Tasks.Compile.Surface.AssetGenerator do
   end
 
   defp module_loaded?(module) do
-    match?({:module, _mod}, Code.ensure_compiled(module))
+    case Code.ensure_compiled(module) do
+      {:module, _mod} -> true
+      _ -> false
+    end
   end
 
   defp header() do
